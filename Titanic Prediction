@@ -1,1 +1,192 @@
+import numpy as np
+import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+
+df=pd.read_csv("Titanic-Dataset.csv")
+
+print(df.info())
+print(df.describe([.01,.1,.2,.3,.4,.5,.6,.7,.8,.85,.9,.95,.99]))
+print(df.head(20))
+
+#to drop unnecessary columns like Name, Ticket , Cabin
+
+df=df.drop(['Name', 'Ticket','Cabin'],axis=1)
+print(df.head(10))
+
+#to check if their are any duplicated values or not
+
+print(df[df.duplicated()])  #no duplicated values found
+
+#to check how the age graph is , whether normally distributed or skewed
+print(df['Age'].hist())
+
+#Applying simple imputer with strategy "median"
+imputer=SimpleImputer(strategy="median")
+df['Age']=imputer.fit_transform(df[['Age']])
+
+#As only 2 categorical values are missing in the Embarked column
+
+df['Embarked']=df['Embarked'].fillna(df['Embarked'].mode()[0])
+print(df.head(6))
+
+#To analyze how many people survived based on gender
+
+p_table=df.pivot_table(index='Survived',columns="Sex",values='PassengerId',aggfunc="count")
+print(p_table)
+
+# Rename index values
+p_table.rename(index={0: 'Not Survived', 1: 'Survived'}, inplace=True)
+
+# Plot
+p_table.plot(kind='bar', figsize=(10,6), colormap='Set2')
+plt.title("Survival Count by Gender")
+plt.xlabel("Survival Status")
+plt.ylabel("Count")
+plt.xticks(rotation=0)
+plt.grid(axis='y', linestyle='--')
+plt.tight_layout()
+plt.show()
+
+#To analyze how many people survived based on Embarked
+
+p_table1=df.pivot_table(index='Survived',columns="Embarked",values='PassengerId',aggfunc="count")
+print(p_table1)
+
+p_table1.rename(index={0: 'Not Survived', 1: 'Survived'}, inplace=True)
+
+# Plot
+p_table1.plot(kind='bar', figsize=(10,6), colormap='viridis')
+plt.title("Survival Count based on Embarked")
+plt.xlabel("Survival Status")
+plt.ylabel("Count")
+plt.xticks(rotation=0)
+plt.grid(axis='y', linestyle='--')
+plt.tight_layout()
+plt.show()
+
+
+#To analyze how many people survived based on Pclass
+p_table1=df.pivot_table(index='Survived',columns="Pclass",values='PassengerId',aggfunc="count")
+print(p_table1)
+
+# Plot
+p_table1.plot(kind='bar', figsize=(10,6), color=['green','blue','red'])
+plt.title("Survival Count based on Pclass")
+plt.xlabel("Survival Status")
+plt.ylabel("Count")
+plt.xticks(rotation=0)
+plt.grid(axis='y', linestyle='--')
+plt.tight_layout()
+plt.show()
+
+
+#put dependent columns in X variable and independent columns in Y variables
+
+x=df.drop('Survived',axis=1)
+y=df['Survived']
+
+print(x.head(5))
+print(y.head(5))
+
+#to perform one hot encoding for the categorical data
+
+encoder=OneHotEncoder()
+x_encoded=encoder.fit_transform(x[['Sex','Embarked']]).toarray()
+
+encoded_df = pd.DataFrame(x_encoded, columns=encoder.get_feature_names_out(['Sex', 'Embarked']))
+
+# Merge back with original df
+x= pd.concat([x.drop(['Sex', 'Embarked'], axis=1), encoded_df], axis=1)
+print(x.head())
+
+
+#Scaling the data to bring all the values at same level
+
+scaler = StandardScaler()
+x_scaled = scaler.fit_transform(x)
+print(x_scaled)
+
+final_columns=x.columns
+
+#Splitting the data into test and train
+
+x_train,x_test,y_train,y_test=train_test_split(x_scaled,y,test_size=0.2,random_state=42)
+
+
+#Applying Random Forest Machine learning model
+
+model=RandomForestClassifier(n_estimators=100,random_state=42,max_depth=30,max_features='sqrt',bootstrap=True)
+model.fit(x_train,y_train)
+
+#Predicting the model
+
+y_pred=model.predict(x_test)
+
+print(y_pred)
+
+#To find out the models accuracy
+
+accuracy=accuracy_score(y_test,y_pred)
+print(f"Accuracy: {accuracy}")
+print(classification_report(y_test, y_pred,target_names=['Not Survived','Survived']))
+conf_matrix=confusion_matrix(y_test, y_pred)
+
+
+# Plot Confusion Matrix
+plt.figure(figsize=(6,5))
+sns.heatmap(conf_matrix, annot=True, cmap="Blues", xticklabels=['Not Survived','Survived'], yticklabels=['Not Survived','Survived'])
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title(f"Confusion Matrix (Accuracy: {accuracy * 100:.2f}%)")
+plt.show()
+
+# Get input from user
+
+# User raw input
+pclass = int(input("Passenger Class (1, 2, or 3): "))
+age = float(input("Age: "))
+sibsp = int(input("No. of siblings/spouses aboard: "))
+parch = int(input("No. of parents/children aboard: "))
+fare = float(input("Fare paid: "))
+sex = input("Sex (male/female): ").strip().lower()
+embarked = input("Embarked (Q/S/C): ").strip().upper()
+
+# Encode like training
+sex_female = 1 if sex == "female" else 0
+sex_male = 1 if sex == "male" else 0
+embarked_C = 1 if embarked == "C" else 0
+embarked_Q = 1 if embarked == "Q" else 0
+embarked_S = 1 if embarked == "S" else 0
+
+# Make dataframe with all required columns
+sample_input = pd.DataFrame([{
+    'PassengerId': 999,
+    'Pclass': pclass,
+    'Age': age,
+    'SibSp': sibsp,
+    'Parch': parch,
+    'Fare': fare,
+    'Sex_female': sex_female,
+    'Sex_male': sex_male,
+    'Embarked_C': embarked_C,
+    'Embarked_Q': embarked_Q,
+    'Embarked_S': embarked_S
+}])
+
+# Ensure same column order
+sample_input = sample_input[final_columns]
+
+# Apply same scaler
+sample_scaled = scaler.transform(sample_input)
+
+# Predict
+prediction = model.predict(sample_scaled)
+print("✅ Survived" if prediction[0] == 1 else "❌ Did not survive")
